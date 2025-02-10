@@ -27,8 +27,8 @@ hand_gesture_control/
 ## 🛠️ Installation
 ### 1️⃣ Clone the Repository
 ```bash
-git clone https://github.com/your-username/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/lasyaEd/GesturAI.git
+cd GestureAI
 ```
 
 ### 2️⃣ Install Dependencies

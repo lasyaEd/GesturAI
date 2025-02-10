@@ -18,4 +18,4 @@ def is_fist(hand_landmarks):
     avg_distance = np.mean(distances)  # Compute the average fingertip distance
     print(f"Fist detection avg distance: {avg_distance}")  # Debugging output
 
-    return avg_distance < 0.41  # Adjusted threshold for better recognition
+    return avg_distance < 0.30  # Adjusted threshold for better recognition

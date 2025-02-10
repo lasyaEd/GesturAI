@@ -1,4 +1,4 @@
-import cv2
+import cv2 # type: ignore
 from hand_tracker import HandTracker
 from gesture_utils import is_fist
 from actions import open_terminal

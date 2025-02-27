@@ -1,5 +1,5 @@
-import cv2
-import mediapipe as mp
+import cv2 # type: ignore
+import mediapipe as mp # type: ignore
 
 class HandTracker:
     def __init__(self, detection_conf=0.5, tracking_conf=0.5):

@@ -18,4 +18,17 @@ def is_fist(hand_landmarks):
     avg_distance = np.mean(distances)  # Compute the average fingertip distance
     print(f"Fist detection avg distance: {avg_distance}")  # Debugging output
 
-    return avg_distance < 0.30  # Adjusted threshold for better recognition
+    return avg_distance < 0.20  # Adjusted threshold for better recognition
+
+def is_open_palm(landmarks):
+    """Detect an open palm (all fingers extended)."""
+    return all(landmarks[i].y < landmarks[i-2].y for i in [8, 12, 16, 20])  # Finger tips above knuckles
+
+def is_thumb_up(landmarks):
+    """Detect a thumbs-up gesture."""
+    return landmarks[4].y < landmarks[3].y and all(landmarks[i].y > landmarks[6].y for i in [8, 12, 16, 20])
+
+def is_thumb_down(landmarks):
+    """Detect a thumbs-down gesture."""
+    return landmarks[4].y > landmarks[3].y and all(landmarks[i].y < landmarks[6].y for i in [8, 12, 16, 20])
+

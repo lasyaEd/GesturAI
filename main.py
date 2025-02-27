@@ -1,7 +1,7 @@
-import cv2 # type: ignore
+import cv2
 from hand_tracker import HandTracker
-from gesture_utils import is_fist
-from actions import open_terminal
+from gesture_utils import is_fist, is_open_palm, is_thumb_up, is_thumb_down
+from actions import open_terminal, open_browser, increase_volume, decrease_volume, take_screenshot
 
 # Initialize HandTracker
 tracker = HandTracker()
@@ -21,11 +21,19 @@ while cap.isOpened():
             tracker.draw_landmarks(frame, hand_landmarks)
             print("Hand detected!")  # Debugging output
 
-
-            # Check if a fist is detected
+            # Check for different gestures and execute corresponding action
             if is_fist(hand_landmarks.landmark):
                 print("Fist Detected - Opening Terminal!")
                 open_terminal()
+            elif is_open_palm(hand_landmarks.landmark):
+                print("Open Palm Detected - Opening Browser!")
+                open_browser()
+            elif is_thumb_up(hand_landmarks.landmark):
+                print("Thumbs Up Detected - Increasing Volume!")
+                increase_volume()
+            elif is_thumb_down(hand_landmarks.landmark):
+                print("Thumbs Down Detected - Decreasing Volume!")
+                decrease_volume()
 
     cv2.imshow("Hand Gesture Recognition", frame)
 

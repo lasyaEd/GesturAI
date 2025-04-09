@@ -5,14 +5,21 @@
 ---
 
 ## 📂 Project Structure
-```
-hand_gesture_control/
-│── main.py           # Runs the main loop
-│── hand_tracker.py   # Handles hand tracking using Mediapipe
-│── gesture_utils.py  # Defines gesture recognition functions
-│── actions.py        # Maps gestures to system commands
-│── README.md         # Project documentation
-```
+
+GesturAI/
+│
+├── actions.py              # Maps gestures to system commands
+├── collect_data.py         # Collects gesture data via webcam
+├── gesture_data.pkl        # (ignored) Collected training data
+├── gesture_model.pth       # (ignored) Trained PyTorch model
+├── label_map.pkl           # (ignored) Label-to-gesture mapping
+├── model.py                # PyTorch MLP model definition
+├── run_gesture_control.py  # Main real-time gesture prediction script
+├── training.py             # Trains the classifier
+├── hand_tracker.py         # MediaPipe-based hand landmark tracking
+├── requirements.txt        # All dependencies
+└── README.md               # Project overview
+
 
 ---
 

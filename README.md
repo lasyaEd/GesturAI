@@ -6,6 +6,8 @@
 
 ## 📂 Project Structure
 
+```
+
 GesturAI/
 │
 ├── actions.py              # Maps gestures to system commands
@@ -19,6 +21,7 @@ GesturAI/
 ├── hand_tracker.py         # MediaPipe-based hand landmark tracking
 ├── requirements.txt        # All dependencies
 └── README.md               # Project overview
+```
 
 
 ---

@@ -255,7 +255,7 @@ contexts = {
         "swipe_right": increase_volume,
         "three_fingers": None,
         "rock_on": None
-    },
+    }, 
     "presentation_mode": {
         "open_palm": start_presentation,
         "swipe_right": next_slide,

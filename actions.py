@@ -4,6 +4,8 @@ import platform
 import subprocess
 from datetime import datetime
 import time
+import pyautogui
+
 
 OS = platform.system()
 
@@ -124,8 +126,6 @@ def find():
 
 def _send_keyboard_shortcut(keys):
     try:
-        import pyautogui
-
         # macOS fix: replace 'cmd' with 'command' for pyautogui
         fixed_keys = ['command' if k == 'cmd' else k for k in keys]
         pyautogui.hotkey(*fixed_keys)
@@ -138,7 +138,7 @@ def _send_keyboard_shortcut(keys):
 def pause_video():
     """Click center and press Space to pause/play video."""
     try:
-        import pyautogui
+        
         screen_width, screen_height = pyautogui.size()
         x = screen_width // 2
         y = screen_height // 2
@@ -151,11 +151,8 @@ def pause_video():
         print(f"⚠️ pause_video error: {e}")
 
 
-
-
 def _send_single_key(key):
     try:
-        import pyautogui
         pyautogui.press(key)
     except ImportError:
         print("pyautogui not installed. Run: pip install pyautogui")
@@ -172,7 +169,6 @@ def swipe_right_tab():
     if OS == "Darwin":
         os.system("""osascript -e 'tell application "System Events" to key code 124 using control down'""")  # Right arrow
 
-import pyautogui
 
 def start_presentation():
     """Start PowerPoint presentation (equivalent to pressing F5)."""
@@ -201,9 +197,7 @@ def previous_slide():
 def exit_presentation():
     """Exits PowerPoint slideshow by bringing it to front and sending ESC."""
     try:
-        import pyautogui
-        import os
-        import time
+
 
         # Step 1: Bring PowerPoint to the foreground
         os.system('osascript -e \'tell application "Microsoft PowerPoint" to activate\'')
@@ -215,9 +209,6 @@ def exit_presentation():
 
     except Exception as e:
         print(f"⚠️ Error exiting PowerPoint: {e}")
-
-
-
 
 
 

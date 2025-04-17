@@ -3,3 +3,4 @@ gesture_model.pth
 label_map.pkl
 __pycache__/
 venv/
+.env

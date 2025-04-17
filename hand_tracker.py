@@ -1,7 +1,10 @@
 import cv2 # type: ignore
 import mediapipe as mp # type: ignore
+import numpy as np
+
 
 class HandTracker:
+    
     def __init__(self, detection_conf=0.5, tracking_conf=0.5):
         self.mp_hands = mp.solutions.hands
         self.hands = self.mp_hands.Hands(min_detection_confidence=detection_conf, 
@@ -18,3 +21,4 @@ class HandTracker:
         """Draws landmarks on the detected hands."""
         self.mp_draw.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
 
+    

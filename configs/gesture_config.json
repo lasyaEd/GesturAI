@@ -1,5 +1,5 @@
 {
-  "default": {
+  "default_mode": {
     "open_palm": "paste",
     "fist": "open_terminal",
     "thumbs_up": "open_browser",

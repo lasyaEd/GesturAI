@@ -4,8 +4,32 @@ import numpy as np
 import torch
 import pickle
 import time
-from model import GestureClassifier
-from gesture_mapping import load_gesture_mapping, get_action_from_gesture
+from archive.model import GestureClassifier
+import os
+import json
+import actions
+
+
+CONFIG_PATH = os.getenviron["GESTURE_AI_CONFIG"]
+
+def normalize_keypoints(landmarks):
+        keypoints = np.array([(lm.x, lm.y, lm.z) for lm in landmarks])
+        keypoints -= np.mean(keypoints, axis=0)
+        keypoints /= np.std(keypoints, axis=0) # TODO this might not be the best way to normalize
+        return keypoints.flatten()
+
+def get_action_from_gesture(gesture, mode, mapping):
+    """Returns the callable action function for a given gesture and mode."""
+    try:
+        action_name = mapping[mode][gesture]
+        return getattr(actions, action_name)
+    except KeyError:
+        print(f"⚠️ No action found for gesture '{gesture}' in mode '{mode}'")
+        return None
+    except AttributeError:
+        print(f"⚠️ Action function '{action_name}' not found in actions.py")
+        return None
+
 
 # Load model
 with open("label_map.pkl", "rb") as f:
@@ -15,7 +39,16 @@ model = GestureClassifier(input_size=63, num_classes=len(label_map))
 model.load_state_dict(torch.load("gesture_model.pth"))
 model.eval()
 
+# Load gesture mapping
+if not os.path.exists(CONFIG_PATH):
+    print("⚠️ No config file found, using default empty mapping.")
+        
+    with open(CONFIG_PATH, "r") as f:
+        gesture_map = json.load(f)
+
 # Context switching triggers
+# TODO move this to gesture config file
+
 context_triggers = {
     "three_fingers": "word_mode",
     "peace_sign": "media_mode",
@@ -24,19 +57,10 @@ context_triggers = {
 }
 active_context = "default"
 
-# Load gesture-action mapping
-gesture_map = load_gesture_mapping()
-
 # Initialize MediaPipe
 mp_hands = mp.solutions.hands
 hands = mp_hands.Hands(static_image_mode=False, max_num_hands=1, min_detection_confidence=0.3)
 mp_draw = mp.solutions.drawing_utils
-
-def normalize_keypoints(landmarks):
-    keypoints = np.array([(lm.x, lm.y, lm.z) for lm in landmarks])
-    keypoints -= np.mean(keypoints, axis=0)
-    keypoints /= np.std(keypoints, axis=0)
-    return keypoints.flatten()
 
 # Webcam loop
 cap = cv2.VideoCapture(0)

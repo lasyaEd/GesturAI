@@ -3,53 +3,30 @@ import json
 import os
 import inspect
 import actions
+import sys
 
-CONFIG_PATH = "gesture_config.json"
-DEFAULT_MAPPING = {
-  "default": {
-    "open_palm": "paste",
-    "fist": "open_terminal",
-    "thumbs_up": "open_browser",
-    "ok_sign": "lock_computer",
-    "thumbs_down": "open_file_explorer",
-    "three_fingers": "None",
-    "rock_on": "None",
-    "pinch": "pause_video",
-    "swipe_left": "swipe_left_tab",
-    "swipe_right": "swipe_right_tab"
-  },
-  "word_mode": {
-    "pointing_finger": "select_all",
-    "open_palm": "paste",
-    "peace_sign": "copy",
-    "fist": "cut",
-    "thumbs_up": "undo",
-    "thumbs_down": "redo",
-    "three_fingers": "None",
-    "rock_on": "None"
-  },
-  "media_mode": {
-    "swipe_left": "decrease_volume",
-    "swipe_right": "increase_volume",
-    "three_fingers": "None",
-    "rock_on": "None",
-    "pinch": "pause_video",
-    "open_palm": "pause_video"
-  },
-  "presentation_mode": {
-    "open_palm": "start_presentation",
-    "swipe_right": "next_slide",
-    "swipe_left": "previous_slide",
-    "three_fingers": "exit_presentation"
-  }
-}
 
-# Utility to load and save mapping
-def load_mapping():
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, "r") as f:
-            return json.load(f)
-    return DEFAULT_MAPPING.copy()
+
+CONFIG_PATH = os.getenviron["GESTURE_AI_CONFIG"]
+DEFAULT_CONFIG_PATH = os.getenviron["GESTURE_AI_DEFAULT_CONFIG"]
+DEFAULT_MAPPING = {}
+
+# Load default gesture mapping
+if os.path.exists(DEFAULT_CONFIG_PATH):
+    with open(DEFAULT_CONFIG_PATH, "r") as f:
+        DEFAULT_MAPPING = json.load(f)
+else:
+    print('Default mapping file not found.')
+    sys.exit(-1)
+
+mapping = DEFAULT_MAPPING.copy()
+# Load current gesture mapping
+if os.path.exists(CONFIG_PATH):
+    with open(CONFIG_PATH, "r") as f:
+         mapping = json.load(f)
+else:
+    print('Config file not found.')
+    sys.exit(-1)
 
 def save_mapping(mapping):
     with open(CONFIG_PATH, "w") as f:
@@ -64,7 +41,6 @@ def list_actions():
 st.set_page_config(page_title="Gesture Mapper UI", layout="centered")
 st.title("🖐️ Gesture-to-Action Mapper")
 
-mapping = load_mapping()
 modes = list(mapping.keys())
 actions_list = list_actions()
 

@@ -7,7 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 
-# Load dataset
+# Load dataset - TODO change this to a JSON file w/ keypoints and labels for dataset
 with open("gesture_data.pkl", "rb") as f:
     dataset = pickle.load(f)
 
@@ -18,6 +18,9 @@ y = np.array([item[1] for item in dataset])  # Gesture labels
 X_train, X_test, y_train, y_test = train_test_split(
     X, y, test_size=0.2, random_state=42, stratify=y
 )
+
+
+
 
 # Define model architecture
 class GestureClassifier(nn.Module):
@@ -96,7 +99,9 @@ GESTURE_LABELS = {
     'swipe_left': 10,
     'swipe_right': 11
 }
+
 label_map = {v: k for k, v in GESTURE_LABELS.items()}
+
 with open("label_map.pkl", "wb") as f:
     pickle.dump(label_map, f)
 print("📌 Label map saved to label_map.pkl")

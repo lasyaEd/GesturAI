@@ -1,0 +1,14 @@
+{
+    "open_palm": 0,
+    "fist": 1,
+    "peace_sign": 2,
+    "thumbs_up": 3,
+    "pointing_finger": 4,
+    "ok_sign": 5,
+    "thumbs_down": 6,
+    "three_fingers": 7,
+    "rock_on": 8,
+    "pinch": 9,
+    "swipe_left": 10,
+    "swipe_right": 11
+}

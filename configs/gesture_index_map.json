@@ -1,0 +1,9 @@
+{
+    "open_palm": 0,
+    "fist": 1,
+    "peace_sign": 2,
+    "thumbs_up": 3,
+    "ok_sign": 4,
+    "pointing": 5,
+    "other_gesture": 6
+}

@@ -3,6 +3,8 @@ import mediapipe as mp # type: ignore
 import numpy as np
 
 
+
+
 class HandTracker:
     
     def __init__(self, detection_conf=0.5, tracking_conf=0.5):
@@ -21,4 +23,3 @@ class HandTracker:
         """Draws landmarks on the detected hands."""
         self.mp_draw.draw_landmarks(frame, hand_landmarks, self.mp_hands.HAND_CONNECTIONS)
 
-    

@@ -7,14 +7,15 @@ A real-time hand gesture recognition system using MediaPipe and PyTorch to contr
 ## 🔧 Features
 
 - ✅ Real-time gesture recognition using webcam  
-- ✅ Context-aware gesture modes (`media_mode`, `word_mode`, `presentation_mode`)  
+- ✅ Context-specific gesture modes 🧠 (`media_mode`, `word_mode`, `presentation_mode`) - switch between modes using gestures!
 - ✅ Customizable gesture-to-action mappings  
-- ✅ Streamlit UI for editing gesture mappings  
+- ✅ Create your own gestures!  
+- ✅ Streamlit UI for editing gestures and mappings  
 - ✅ Cross-platform (macOS, Linux, Windows)  
 
 ---
 
-## 📂 Project Structure
+<!-- ## 📂 Project Structure
 
 ```
 GesturAI/
@@ -33,44 +34,36 @@ GesturAI/
 ├── gesture_config.json     # Saved gesture-action mappings
 ├── requirements.txt        # All dependencies
 └── README.md               # Project overview
-```
+``` -->
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Install Dependencies
+### 1. 🧰 Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Collect Gesture Data
+---
+
+### 2. ⚙️ Customize Your Gestures and Map Gestures to Actions
 
 ```bash
-python collect_data.py
+python -m streamlit run config.py
 ```
 
-### 3. Train the Model
+Use the configuration app to:
+- Add, rename, relearn, or delete gestures: the app will walk you through the process of collecting data for the new gesture and automatically retrains the gesture recognition model!
+- Change the way gestures trigger system actions or context changes: add or remove mappings, and add, remove, or rename contexts!
+
+---
+
+### 3. 🔁 Run Gesture Controller
 
 ```bash
-python training.py
-```
-
-### 4. Map Gestures to Actions
-
-```bash
-# Option A: Streamlit UI
-streamlit run gesture_ui_mapper.py
-
-# Option B: CLI
-python gesture_cli_mapper.py
-```
-
-### 5. Run Gesture Controller
-
-```bash
-python run_gesture_control.py
+python gesturai.py
 ```
 
 ---
@@ -89,32 +82,9 @@ python run_gesture_control.py
 
 ---
 
-## 🧠 Context Modes
-
-- `default`
-- `word_mode`
-- `media_mode`
-- `presentation_mode`
-
-You can switch between modes using trigger gestures like `three_fingers`, `peace_sign`, or `ok_sign`.
-
----
-
-## 🔁 Customize Your Mappings
-
-Use `gesture_ui_mapper.py` to:
-
-- Add new gestures  
-- Map gestures to system actions  
-- Delete or reset mappings  
-- Save to `gesture_config.json`  
-
----
-
 ## 📌 Future Ideas
 
-- Record your own custom gestures  
-- Add voice feedback or sound effects  
-- Integrate with specific apps (Zoom, PowerPoint, etc.)  
+- Extend to take voice commands
+- Add sound effects or feedback  
+- Integrate with popular apps (Zoom, PowerPoint, etc.)  
 - Cloud-hosted UI for remote gesture mapping  
-

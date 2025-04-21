@@ -41,6 +41,25 @@ def load_json_mapping(path):
     finally:
         f.close()
 
+def load_csvs(data_path):
+    """
+    Load training data from CSV files in the specified directory.
+    
+    Args:
+        data_path (str): Path to the directory containing gesture data CSV files.
+    
+    Returns:
+        pd.DataFrame: Combined DataFrame of all gesture data.
+    """
+    all_data = []
+    for filename in os.listdir(data_path):
+        if filename.endswith(".csv"):
+            file_path = os.path.join(data_path, filename)
+            gesture_data = pd.read_csv(file_path)
+            all_data.append(gesture_data)
+    
+    return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
+
 
 def save_model(model, path):
     
@@ -255,13 +274,17 @@ def create_gesture(
     # GATHER NEW GESTURE DATA
     new_data = gesture_data_capture.gather_gesture_data(gesture_name)
 
+    # LOAD OLD GESTURE DATA
+    training_data = new_data.copy()
+    training_data = pd.concat([training_data, load_csvs(gesture_data_path)], ignore_index=True)
+
     # CREATE NEW MAPS AND MODEL
     # TODO Create a new gesture-index map including the gesture to be added
     old_gesture_index_map = load_json_mapping(gesture_index_map_path)[0]
     new_gesture_index_map = old_gesture_index_map.copy()
     new_gesture_index_map[gesture_name] = len(old_gesture_index_map)
 
-    # TODO Train a new gesture model including the gesture to be added
+    # Train a new gesture model including the gesture to be added
     new_model = gesture_model.train_gesture_model(new_data)
 
 
@@ -281,6 +304,11 @@ def delete_gesture(
         gesture_action_map_path,
         gesture_data_path,
         gesture_model_path):
+    
+    # LOAD GESTURE DATA, DROP ROWS FROM GESTURE NAME
+    training_data = pd.concat([training_data, load_csvs(gesture_data_path)], ignore_index=True)
+    training_data = training_data[training_data['gesture_name'] != gesture_name]
+    
     # CREATE NEW MAPS AND MODEL
     # TODO Create a new gesture-index map excluding the gesture to be removed
     old_gesture_index_map = load_json_mapping(gesture_index_map_path)[0]
@@ -301,7 +329,7 @@ def delete_gesture(
                 new_gesture_action_map[context][gesture] = old_gesture_action_map[context][gesture]
         
     # TODO Train a new gesture model excluding the gesture to be removed
-    new_model = gesture_model.train_gesture_model()
+    new_model = gesture_model.train_gesture_model(training_data)
 
     # UPDATE MAPS AND MODEL; DELETE OLD DATA
     # TODO LATER: Add a check to see if the model training was successful; if not, revert
@@ -351,19 +379,18 @@ def update_gesture(
         gesture_data_path,
         gesture_model_path):
     # GATHER NEW GESTURE DATA
-    new_gesture_data = gesture_data_capture.gather_gesture_data(gesture_name)
+    new_data = gesture_data_capture.gather_gesture_data(gesture_name)
+    
+    # LOAD TRAINING DATA, REMOVE OLD GESTURE DATA, AND ADD NEW DATA
+    training_data = pd.concat([training_data, load_csvs(gesture_data_path)], ignore_index=True)
+    training_data = training_data[training_data['gesture_name'] != gesture_name]
+    training_data = pd.concat([training_data, new_data], ignore_index=True)
 
     # TRAIN NEW MODEL
     # Load gesture-index map (read-only)
     gesture_index_map = load_json_mapping(gesture_index_map_path)[0]
     
-    # Load the old gesture data except retraining gesture
-    # & append to the newly gathered gesture data
-    for k in gesture_index_map.keys():
-        if k != gesture_name:
-            old_gesture_data = pd.read_csv(gesture_data_path + "/" + k + ".csv")
-            # TODO append the old gesture data to the new gesture data
-            new_gesture_data = pd.concat([new_gesture_data, old_gesture_data], ignore_index=True)
+    
 
     # TODO retrain the gesture model
 

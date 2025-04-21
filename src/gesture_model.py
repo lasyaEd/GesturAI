@@ -95,22 +95,22 @@ class GestureClassifier(nn.Module):
 
 # model training function
 def train_gesture_model(
-    df : pd.DataFrame,
+    data : pd.DataFrame,
     gesture_index_map : dict,
-    sample_size_per_gesture : int = 50,
+    sample_size_per_gesture : int = 100,
     sample_size_other_gesture : int = 250,):
 
     # Drop all rows with any nulls - shouldn't be any
-    df = df.dropna()
+    df = data.dropna()
 
     # Create an empty dataframe to store selected samples
     df_sampled = pd.DataFrame(columns=df.columns)
 
     # For each handedness and gesture, select observations and add to df_sampled
-    for handedness in ['-1', '1']:
+    for right_hand in ['-1', '1']:
         for gesture in df['gesture_name'].unique():
             sample_size = sample_size_other_gesture if gesture == 'other_gesture' else sample_size_per_gesture
-            df_temp = df[(df['handedness'] == handedness) & (df['gesture_name'] == gesture)]
+            df_temp = df[(df['right_hand'] == right_hand) & (df['gesture_name'] == gesture)]
 
             # Check if we have enough samples
             if len(df_temp) >= sample_size:

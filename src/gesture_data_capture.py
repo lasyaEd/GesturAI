@@ -35,7 +35,7 @@ def capture_gesture_data(gesture_name):
 
     # Create landmarks header
     landmarks_header = [
-        'capturing_gesture',
+        'gesture_name',
         'capture_number', 
         'right_hand',
         'score']
@@ -102,7 +102,7 @@ def capture_gesture_data(gesture_name):
                     'gesture_name': gesture_name,
                     'score': landmarks.multi_handedness[0].classification[0].score,
                     'capture_number': capture_number, 
-                    'right_hand': 1 if landmarks.multi_handedness[0].classification[0].label == 'right' else -1,
+                    'right_hand': 1 if landmarks.multi_handedness[0].classification[0].label == 'Right' else -1,
                 }          
                 for landmark_id in range(num_landmarks):
                     landmark = landmarks.multi_hand_landmarks[0].landmark[landmark_id]

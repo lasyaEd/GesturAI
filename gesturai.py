@@ -62,8 +62,7 @@ while cap.isOpened():
             
             # Get the hand landmarks and handedness
             hand_landmarks = result.multi_hand_landmarks[i]
-            # TODO Change this to -1 left, 1 right as soon as a new model has been trained this way
-            handedness = 1 if result.multi_handedness[i].classification[0].label == "Right" else 0
+            handedness = 1 if result.multi_handedness[i].classification[0].label == "Right" else -1
             
             # Draw hand landmarks on the frame
             mp_draw.draw_landmarks(frame, hand_landmarks, mp_hands.HAND_CONNECTIONS)
@@ -73,13 +72,17 @@ while cap.isOpened():
 
             # Normalize the landmarks, returning a 1D numpy array          
             hand_landmarks = gm.normalize_landmarks(hand_landmarks)
-            # appen handedness as a numeric feature for the model
-            hand_landmarks = np.append(hand_landmarks, handedness)
+            
+            # Flatten the array to 1D
+            np.array(hand_landmarks).flatten()
+
+            # Append handedness as a numeric feature for the model            
+            features = np.append(handedness, hand_landmarks)
 
             # Convert to tensor & predict gesture
-            hand_landmarks_tensor = torch.tensor(hand_landmarks, dtype=torch.float32)
-            with torch.no_grad():
-                gesture_output = gesture_model(hand_landmarks_tensor)
+            features = torch.tensor(features, dtype=torch.float32)
+            with torch.no_grad(): 
+                gesture_output = gesture_model(features)
                 predicted_gesture = index_gesture_map[torch.argmax(gesture_output).item()]
             print(f"Predicted gesture: {predicted_gesture}")
 

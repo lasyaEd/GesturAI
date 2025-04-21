@@ -10,18 +10,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import mediapipe as mp
 
-def load_gesture_data(path, gesture_labels):
-     # Load the data for each gesture
-        # CSV format,
-        # Each file is all of the data for a specific gesture
-        # Each row represents a frame of landmarks
-    
-    for gesture in gesture_labels:
-        gesture_path = f"{path}/{gesture}"
-       
-
-        # TODO load the data 
-
 
 # # Standardize preprocessing of the landmarks to ensure consistent input to the model
 # def normalize_landmarks(landmarks):
@@ -33,13 +21,11 @@ def load_gesture_data(path, gesture_labels):
 
 def normalize_landmarks(hand_landmarks):
     """
-    Normalizes hand landmarks from MediaPipe's NormalizedLandmarkList object.
-    
     Args:
         hand_landmarks: List of landmarks, each landmark is a list of [x, y, z] coordinates.
         
     Returns:
-        Flattened numpy array of normalized landmarks
+        List of lists of normalized landmarks, where each landmark is a list of [x, y, z] coordinates.
     """
 
     # Get the average landmark coordinates and center the hand coordinates
@@ -51,25 +37,55 @@ def normalize_landmarks(hand_landmarks):
         for dim in range(3):
             hand_landmarks[lm_id][dim] -= hand_landmarks_centers[dim]
     
-    # Get min and max for each dimension
+    # Get center, min and max for each dimension
+    hand_landmarks_centers = []
     hand_landmarks_mins = []
     hand_landmarks_maxs = []
     for dim in range(3):
+        hand_landmarks_centers.append(np.mean([landmark[dim] for landmark in hand_landmarks]))
         hand_landmarks_mins.append(np.min([landmark[dim] for landmark in hand_landmarks]))
         hand_landmarks_maxs.append(np.max([landmark[dim] for landmark in hand_landmarks]))
     
-    # Normalize to range [0, 1]
-    # TODO Switch to normalizing to range [-1, 1] as soon as model is trained this way
+    # Then, scale them to fit within the range of -1 to 1
     for lm_id in range(len(hand_landmarks)):
         for dim in range(3):
-            # Handle case where max and min are the same (division by zero)
-            range_val = hand_landmarks_maxs[dim] - hand_landmarks_mins[dim]
-            if range_val > 0:
-                hand_landmarks[lm_id][dim] = (hand_landmarks[lm_id][dim] - hand_landmarks_mins[dim]) / range_val
+            # First, center the landmarks around the mean
+            hand_landmarks[lm_id][dim] -= hand_landmarks_centers[dim]
+            # Then, scale them to fit within the range of -1 to 1
+            # based on the distance of the max and min values from the mean
+            denom = max(abs(hand_landmarks_maxs[dim]-hand_landmarks_centers[dim]), 
+                        abs(hand_landmarks_mins[dim]-hand_landmarks_centers[dim]))
+            if denom > 0:
+                hand_landmarks[lm_id][dim] /= denom
             else:
-                hand_landmarks[lm_id][dim] = 0  # Default to 0 if all values are identical
+                hand_landmarks[lm_id][dim] = 0
+
+    return hand_landmarks
+
+# Wrapper function to normalize each set of landmarks in a dataframe
+# using the normalize_landmarks function
+def normalize_landmarks_df(
+        df = pd.DataFrame):
+
+    df = df.copy()
+
+    # For each row of the dataframe, normalize the landmarks
+    for index, row in df.iterrows():
+        # Extract landmarks from the row
+        hand_landmarks = []
+        for i in range(21):
+            hand_landmarks.append([row[f'{i}_x'], row[f'{i}_y'], row[f'{i}_z']])
+        
+        # Normalize the landmarks
+        normalized_landmarks = normalize_landmarks(hand_landmarks)
+        
+        # Update the dataframe with normalized landmarks
+        for i in range(21):
+            df.at[index, f'{i}_x'] = normalized_landmarks[i][0]
+            df.at[index, f'{i}_y'] = normalized_landmarks[i][1]
+            df.at[index, f'{i}_z'] = normalized_landmarks[i][2]
     
-    return np.array(hand_landmarks).flatten()
+    return df
 
 
 # TODO add a function to add handedness to the keypoints, transform to tensor, etc
@@ -91,123 +107,87 @@ class GestureClassifier(nn.Module):
         x = self.fc3(x)
         return x
 
-
-
-# model training function
-def train_gesture_model(
-    data : pd.DataFrame,
-    gesture_index_map : dict,
+def get_balanced_sample(
+    df : pd.DataFrame,
     sample_size_per_gesture : int = 100,
-    sample_size_other_gesture : int = 250,):
-
-    # Drop all rows with any nulls - shouldn't be any
-    df = data.dropna()
+    sample_size_other_gesture : int = 250):
 
     # Create an empty dataframe to store selected samples
-    df_sampled = pd.DataFrame(columns=df.columns)
+    df_balanced = pd.DataFrame(columns=df.columns)
 
     # For each handedness and gesture, select observations and add to df_sampled
-    for right_hand in ['-1', '1']:
-        for gesture in df['gesture_name'].unique():
+    for handedness in [-1, 1]:
+        for gesture in df['y'].unique():
             sample_size = sample_size_other_gesture if gesture == 'other_gesture' else sample_size_per_gesture
-            df_temp = df[(df['right_hand'] == right_hand) & (df['gesture_name'] == gesture)]
+            df_temp = df[(df['handedness'] == handedness) & (df['y'] == gesture)]
 
             # Check if we have enough samples
             if len(df_temp) >= sample_size:
-                sampled = df_temp.sample(n=sample_size, random_state=42)
-                df_sampled = pd.concat([df_sampled, sampled])
+                subsample = df_temp.sample(n=sample_size, random_state=42)
+                df_balanced = pd.concat([df_balanced, subsample])
             else:
-                # Take all available if less than required
-                df_sampled = pd.concat([df_sampled, df_temp])
-
-    # replace and fix up df
-    df = df_sampled
-    df = df.reset_index(drop=True)
-
-    # Create new feature y based on gesture index map
-    # TODO test
-    df['y'] = df['gesture_name'].map(gesture_index_map)
-    df = df.drop(columns=["gesture_name", "capture_number"])
-
-    # Get mean of each coordinate
-    df['center_x'] = np.mean([df[f'{i}_x'] for i in range(21)], axis=0)
-    df['center_y'] = np.mean([df[f'{i}_y'] for i in range(21)], axis=0)
-    df['center_z'] = np.mean([df[f'{i}_z'] for i in range(21)], axis=0)
+                print(f"Not enough samples for gesture {gesture} with handedness = {handedness}.")
+                return None, False
+            
+    df_balanced = df_balanced.reset_index(drop=True)
+    return df_balanced, True
 
 
-    #Translate coordinates to base on center
-    for i in range(21):
-        df[f'rec_{i}_x'] = df[f'{i}_x'] - df[f'center_x']
-        df[f'rec_{i}_y'] = df[f'{i}_y'] - df[f'center_y']
-        df[f'rec_{i}_z'] = df[f'{i}_z'] - df[f'center_z']
-
-    # Scale the landmarks to fit within a range of 0 to 1
-    for dim in ['x','y','z']:
-        df[f'rec_max_{dim}'] = np.max([df[f'rec_{i}_{dim}'] for i in range(21)])
-        df[f'rec_min_{dim}'] = np.min([df[f'rec_{i}_{dim}'] for i in range(21)])
-        for i in range(21):
-            df[f'scaled_{i}_{dim}'] = (df[f'rec_{i}_{dim}'] - df[f'rec_min_{dim}']) / (df[f'rec_max_{dim}'] - df[f'rec_min_{dim}'])
-            df = df.copy() # to avoid excessive fragmentation
-
-    # Establish feature set
-    feature_set = [f'scaled_{i}_{j}' for i in range(21) for j in ['x','y','z']]
-    feature_set.append('handedness_encoded')
-
-    X = df.drop["y"]
-    y = df["y"]
+def train_gesture_model(df : pd.DataFrame):
 
     # Split data (stratified ensures class balance in both sets)
+    X = df.drop(columns=["y"])
+    y = df["y"]
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
-    )
-        
+    )  
+
     # Initialize model
     input_size = X.shape[1]
     num_classes = len(set(y))
     model = GestureClassifier(input_size, num_classes)
 
     # Training config
-    # TODO add a scheduler, early stopping, optimal model identification, etc
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.002)
-    epochs = 30
+    epochs = 30 + num_classes * 3
 
     # Convert to tensors
-    X_train_tensor = torch.tensor(X_train, dtype=torch.float32)
-    y_train_tensor = torch.tensor(y_train, dtype=torch.long)
-    X_test_tensor = torch.tensor(X_test, dtype=torch.float32)
-    y_test_tensor = torch.tensor(y_test, dtype=torch.long)
+    X_train_tensor = torch.tensor(X_train.values.astype(np.float32), dtype=torch.float32)
+    y_train_tensor = torch.tensor(y_train.values.astype(np.int64), dtype=torch.int64)
+    X_test_tensor = torch.tensor(X_test.values.astype(np.float32), dtype=torch.float32)
+    y_test_tensor = torch.tensor(y_test.values.astype(np.int64), dtype=torch.int64)
 
     # Train model
-    model.train()
+    
     for epoch in range(epochs):
+        model.train()
         optimizer.zero_grad()
         outputs = model(X_train_tensor)
         loss = criterion(outputs, y_train_tensor)
         loss.backward()
         optimizer.step()
-        print(f"Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
+        print(f"Epoch {epoch+1}/{epochs}, Training Loss: {loss.item():.4f}")
+        
 
-    # Evaluate on test set
-    model.eval()
-    with torch.no_grad():
-        test_outputs = model(X_test_tensor)
-        predicted = torch.argmax(test_outputs, dim=1)
-        accuracy = (predicted == y_test_tensor).sum().item() / len(y_test_tensor)
-        print(f"\n✅ Test Accuracy: {accuracy * 100:.2f}%")
-
-        # Confusion matrix
-        cm = confusion_matrix(y_test, predicted)
-        disp = ConfusionMatrixDisplay(confusion_matrix=cm)
-        disp.plot(cmap="Blues")
-        plt.title("Confusion Matrix")
-        plt.xlabel("Predicted")
-        plt.ylabel("True")
-        plt.show()
-
-    # TODO model selection - review model results and return the best modle
-    # TODO consider failure conditions - when should the new gesture data be rejected as inadequte to train a new model?
-    return model
+        # Evaluate on test set
+        model.eval()
+        with torch.no_grad():
+            test_outputs = model(X_test_tensor)
+            predicted = torch.argmax(test_outputs, dim=1)
+            accuracy = (predicted == y_test_tensor).sum().item() / len(y_test_tensor)
+            print(f"\n✅ Test Accuracy: {accuracy * 100:.2f}%")
     
+            # # Confusion matrix
+            # cm = confusion_matrix(y_test, predicted)
+            # disp = ConfusionMatrixDisplay(confusion_matrix=cm)
+            # disp.plot(cmap="Blues")
+            # plt.title("Confusion Matrix")
+            # plt.xlabel("Predicted")
+            # plt.ylabel("True")
+            # plt.show()
+        
+
+    return model
 
 

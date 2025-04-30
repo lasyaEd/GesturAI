@@ -9,14 +9,59 @@ from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
 import pandas as pd
 import mediapipe as mp
+import src.gesture_model as gm
+
+# TODO add dropout layers to the model to prevent overfitting
+# TODO add batch normalization to the model to improve training speed and stability
+# TODO turn this into a simple sequential model to simplify the code?
+# TODO switch to leaky relu?
+class GestureClassifier(nn.Module):
+    def __init__(self, input_features, output_classes):
+        super(GestureClassifier, self).__init__()
+        self.fc1 = nn.Linear(input_features, 256)
+        self.fc2 = nn.Linear(256, 64)
+        self.fc3 = nn.Linear(64, output_classes)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
 
 
-# # Standardize preprocessing of the landmarks to ensure consistent input to the model
-# def normalize_landmarks(landmarks):
-#         keypoints = np.array([(lm.x, lm.y, lm.z) for lm in landmarks])
-#         keypoints -= np.mean(keypoints, axis=0)
-#         keypoints /= np.std(keypoints, axis=0) # TODO this might not be the best way to normalize
-#         return keypoints.flatten()
+def model_training_pipeline(
+    df : pd.DataFrame,
+    gesture_index_map : dict,
+    sample_size_per_gesture : int = 100,
+    sample_size_other_gesture : int = 250):
+    
+    # Drop rows with NaN values
+    df = df.dropna()
+
+    # Convert handedness to numeric values
+    df['handedness'] = df['handedness'].map({'Left': -1, 'Right': 1})
+
+    # Convert gesture labels to numeric values
+    df['y'] = df['gesture_name'].map(gesture_index_map)
+    df = df.drop(columns=['gesture_name'])
+
+    # Balance the sample
+    df = gm.get_balanced_sample(
+        df,
+        sample_size_per_gesture = sample_size_per_gesture,
+        sample_size_other_gesture = sample_size_other_gesture
+    )
+
+    # Normalize the landmarks
+    df = normalize_landmarks_df(df)
+
+    # X,y split
+    X = df.drop(columns=["y"])
+    y = df["y"]
+
+    # Train and return the model
+    return train_model(X,y)
 
 
 def normalize_landmarks(hand_landmarks):
@@ -62,10 +107,37 @@ def normalize_landmarks(hand_landmarks):
 
     return hand_landmarks
 
+
+def get_balanced_sample(
+    df : pd.DataFrame,
+    sample_size_per_gesture : int = 100,
+    sample_size_other_gesture : int = 250):
+
+    # Create an empty dataframe to store selected samples
+    df_balanced = pd.DataFrame(columns=df.columns)
+
+    # For each handedness and gesture, select observations and add to df_sampled
+    for handedness in [-1, 1]:
+        for gesture in df['y'].unique():
+            sample_size = sample_size_other_gesture if gesture == 'other_gesture' else sample_size_per_gesture
+            df_temp = df[(df['handedness'] == handedness) & (df['y'] == gesture)]
+
+            # Check if we have enough samples
+            if len(df_temp) >= sample_size:
+                subsample = df_temp.sample(n=sample_size, random_state=42)
+                df_balanced = pd.concat([df_balanced, subsample], ignore_index=True)
+            else:
+                print(f"Not enough samples for gesture {gesture} with handedness = {handedness}.")
+                return None
+            
+    df_balanced = df_balanced.reset_index(drop=True)
+
+
+    return df_balanced
+
 # Wrapper function to normalize each set of landmarks in a dataframe
 # using the normalize_landmarks function
-def normalize_landmarks_df(
-        df = pd.DataFrame):
+def normalize_landmarks_df(df):
 
     df = df.copy()
 
@@ -88,56 +160,13 @@ def normalize_landmarks_df(
     return df
 
 
-# TODO add a function to add handedness to the keypoints, transform to tensor, etc
-# TODO add dropout layers to the model to prevent overfitting
-# TODO add batch normalization to the model to improve training speed and stability
-# TODO turn this into a simple sequential model to simplify the code?
-# TODO switch to leaky relu?
-class GestureClassifier(nn.Module):
-    def __init__(self, input_features, output_classes):
-        super(GestureClassifier, self).__init__()
-        self.fc1 = nn.Linear(input_features, 256)
-        self.fc2 = nn.Linear(256, 64)
-        self.fc3 = nn.Linear(64, output_classes)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        x = self.relu(self.fc1(x))
-        x = self.relu(self.fc2(x))
-        x = self.fc3(x)
-        return x
-
-def get_balanced_sample(
-    df : pd.DataFrame,
-    sample_size_per_gesture : int = 100,
-    sample_size_other_gesture : int = 250):
-
-    # Create an empty dataframe to store selected samples
-    df_balanced = pd.DataFrame(columns=df.columns)
-
-    # For each handedness and gesture, select observations and add to df_sampled
-    for handedness in [-1, 1]:
-        for gesture in df['y'].unique():
-            sample_size = sample_size_other_gesture if gesture == 'other_gesture' else sample_size_per_gesture
-            df_temp = df[(df['handedness'] == handedness) & (df['y'] == gesture)]
-
-            # Check if we have enough samples
-            if len(df_temp) >= sample_size:
-                subsample = df_temp.sample(n=sample_size, random_state=42)
-                df_balanced = pd.concat([df_balanced, subsample])
-            else:
-                print(f"Not enough samples for gesture {gesture} with handedness = {handedness}.")
-                return None, False
-            
-    df_balanced = df_balanced.reset_index(drop=True)
-    return df_balanced, True
-
-
-def train_gesture_model(df : pd.DataFrame):
+# Takes a dataframe with columns ['x', 'y', 'z'] for each landmark
+# A numeric column 'handedness' indicating the handedness of the gesture (1 for right, -1 for left) 
+# and a numeric label column 'y'
+# Returns a newly trained model
+def train_model(X: pd.DataFrame, y: pd.DataFrame):
 
     # Split data (stratified ensures class balance in both sets)
-    X = df.drop(columns=["y"])
-    y = df["y"]
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.2, random_state=42, stratify=y
     )  
@@ -189,5 +218,11 @@ def train_gesture_model(df : pd.DataFrame):
         
 
     return model
+
+
+
+
+
+
 
 

@@ -3,7 +3,8 @@ import mediapipe as mp
 import pandas as pd
 
 
-def capture_gesture_data(gesture_name):
+
+def gather_gesture_data(gesture_name):
 
     # Initialize MediaPipe Hands
     mp_hands = mp.solutions.hands
@@ -35,14 +36,11 @@ def capture_gesture_data(gesture_name):
 
     # Create landmarks header
     landmarks_header = [
-        'gesture_name',
-        'capture_number', 
-        'right_hand',
-        'score']
+        'handedness']
     for landmark_id in range(num_landmarks):
         for point_id in ['x', 'y', 'z']:
             landmarks_header.append(f'{landmark_id}_{point_id}')
-    
+
     landmarks_df = pd.DataFrame(columns=landmarks_header)
 
     # Main loop to process video frames and capture landmarks
@@ -98,20 +96,17 @@ def capture_gesture_data(gesture_name):
         if key == ord('c'):
             if landmarks.multi_hand_world_landmarks:
 
-                landmarks_data = {
-                    'gesture_name': gesture_name,
-                    'score': landmarks.multi_handedness[0].classification[0].score,
-                    'capture_number': capture_number, 
-                    'right_hand': 1 if landmarks.multi_handedness[0].classification[0].label == 'Right' else -1,
+                current_item = {
+                    'handedness': landmarks.multi_handedness[0].classification[0].label
                 }          
                 for landmark_id in range(num_landmarks):
                     landmark = landmarks.multi_hand_landmarks[0].landmark[landmark_id]
-                    landmarks_data[f'{landmark_id}_x'] = landmark.x
-                    landmarks_data[f'{landmark_id}_y'] = landmark.y
-                    landmarks_data[f'{landmark_id}_z'] = landmark.z
+                    current_item[f'{landmark_id}_x'] = landmark.x
+                    current_item[f'{landmark_id}_y'] = landmark.y
+                    current_item[f'{landmark_id}_z'] = landmark.z
                         
                 # Append landmarks data to dataframe
-                landmarks_df = pd.concat([landmarks_df, pd.DataFrame([landmarks_data])], ignore_index=True)
+                landmarks_df = pd.concat([landmarks_df, pd.DataFrame([current_item])], ignore_index=True)
                 
                 capture_number += 1
                 print("Frame captured with hand landmarks")
@@ -127,6 +122,8 @@ def capture_gesture_data(gesture_name):
         # 's' key to stop and return captured landmarks
         elif key == ord('s'):  
             
+            landmarks_df['gesture_name'] = gesture_name
+
             # Release resources
             cap.release()
             cv2.destroyAllWindows()

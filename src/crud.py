@@ -1,11 +1,14 @@
 import json
 import os
-import src.gesture_data_capture as gesture_data_capture
-import src.gesture_model as gesture_model
+import src.gesture_data as gd
+import src.gesture_model as gm
 import pandas as pd
+import torch
 
-# TODO make sure this works correctly - MUST close the file after saving
-def save_mapping(path, mapping):
+# SUPPORT FUNCTIONS - 
+# TODO consider removing these and using a library like `jsonschema` for validation
+
+def save_json_mapping(path, mapping):
     try:
         with open(path, "w") as f:
             json.dump(mapping, f, indent=2)
@@ -21,64 +24,56 @@ def save_mapping(path, mapping):
         except Exception as e:
             print(f"Error closing file: {e}")
 
-# TODO make sure this works correctly - should close the file after loader
 def load_json_mapping(path):
     try:
         with open(path, "r") as f:
             mapping = json.load(f)
         f.close()
-        return mapping, True
+        return mapping
     except FileNotFoundError:
         print(f"File not found: {path}")
-        return {}, False
+        return {}
     except json.JSONDecodeError:
         print(f"Error decoding JSON from file: {path}")
-        return {}, False
+        return {}
     except Exception as e:
         print(f"Unexpected error: {e}")
-        return {}, False
+        return {}
     # cleanup - close file if it was opened
     finally:
         f.close()
 
-def load_csvs(data_path):
+def load_gesture_data(
+        data_path, 
+        gesture_name, 
+        suffix = ".csv"):
     """
-    Load training data from CSV files in the specified directory.
+    Load training data from a CSV file.
     
     Args:
-        data_path (str): Path to the directory containing gesture data CSV files.
+        data_path (str): Path to the CSV file containing gesture data.
     
     Returns:
-        pd.DataFrame: Combined DataFrame of all gesture data.
+        pd.DataFrame: DataFrame containing the gesture data.
     """
-    all_data = []
-    for filename in os.listdir(data_path):
-        if filename.endswith(".csv"):
-            file_path = os.path.join(data_path, filename)
-            gesture_data = pd.read_csv(file_path)
-            all_data.append(gesture_data)
-    
-    return pd.concat(all_data, ignore_index=True) if all_data else pd.DataFrame()
+    file_path = os.path.join(data_path, gesture_name + suffix)
+    try:
+        gesture_data = pd.read_csv(file_path)
+        # add a column 'gesture_name' to the data
+        gesture_data['gesture_name'] = gesture_name
+        return gesture_data
+    except FileNotFoundError:
+        print(f"File not found: {file_path}")
+        return pd.DataFrame()
+    except pd.errors.EmptyDataError:
+        print(f"Empty CSV file: {file_path}")
+        return pd.DataFrame()
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        return pd.DataFrame()
 
 
-def save_model(model, path):
-    
-    # TODO move this to configuartion app
-    # torch.save(model.state_dict(), "gesture_model.pth")
-    # print("🎉 Model saved to gesture_model.pth")
-
-    # # TODO import gesture labels
-
-
-
-    # label_map = {v: k for k, v in GESTURE_LABELS.items()}
-
-    # with open("label_map.pkl", "wb") as f:
-    #     pickle.dump(label_map, f)
-    # print("📌 Label map saved to label_map.pkl")
-
-    pass
-
+# CONTEXT CRUD OPERATIONS
 
 def create_context(
         context_name, 
@@ -91,10 +86,14 @@ def create_context(
         gesture_map (dict): The current gesture action map
     
     Returns:
-        bool: True if successful, False if the context already exists
+        bool: True if successful, False if the context already exists or if the name is invalid
     """
+    if context_name[:5] != "mode_":
+        print(f"Context name '{context_name}' must start with 'mode_'.")
+        return False
+
     # Load current gesture-action map
-    gesture_action_map = load_json_mapping(gesture_action_map_path)[0]
+    gesture_action_map = load_json_mapping(gesture_action_map_path)
     
     if context_name in gesture_action_map:
         return False
@@ -103,7 +102,7 @@ def create_context(
     gesture_action_map[context_name] = {}
     
     # Save the updated map
-    save_mapping(gesture_action_map_path, gesture_action_map)
+    save_json_mapping(gesture_action_map_path, gesture_action_map)
     return True
 
 
@@ -121,7 +120,7 @@ def delete_context(
         bool: True if successful, False if the context doesn't exist or is protected
     """
     # Load current gesture-action map
-    gesture_action_map = load_json_mapping(gesture_action_map_path)[0]
+    gesture_action_map = load_json_mapping(gesture_action_map_path)
     
     # Protect essential contexts from being removed
     protected_contexts = ["mode_context_selection", "mode_default"]
@@ -144,11 +143,10 @@ def delete_context(
                 del context_selection[gesture]
     
     # Save the updated map
-    save_mapping(gesture_action_map_path, gesture_action_map)
+    save_json_mapping(gesture_action_map_path, gesture_action_map)
     return True
 
-
-def update_context_name(
+def rename_context(
         current_context_name, 
         new_context_name, 
         gesture_action_map_path):
@@ -165,18 +163,19 @@ def update_context_name(
               or the new name already exists
     """
     # Load current gesture-action map
-    gesture_action_map = load_json_mapping(gesture_action_map_path)[0]
+    gesture_action_map = load_json_mapping(gesture_action_map_path)
     
     # Protect essential contexts from being renamed
-    protected_contexts = ["mode_context_selection", "mode_default"]
-    
-    if current_context_name not in gesture_action_map:
-        return False
-    
-    if new_context_name in gesture_action_map:
-        return False
-    
+    protected_contexts = ["mode_context_selection"]
     if current_context_name in protected_contexts:
+        print(f"Cannot rename protected context: {current_context_name}")
+        return False
+
+    if current_context_name not in gesture_action_map.keys():
+        print(f"Context '{current_context_name}' does not exist.")
+        return False
+    if new_context_name in gesture_action_map.keys():
+        print(f"Context '{new_context_name}' already exists.")
         return False
     
     # Create new entry with the same mappings
@@ -194,13 +193,12 @@ def update_context_name(
                 context_selection[gesture] = new_context_name
     
     # Save the updated map
-    save_mapping(gesture_action_map_path, gesture_action_map)
+    save_json_mapping(gesture_action_map_path, gesture_action_map)
     return True
 
 
 
-
-# CRUD operations for gesture-action mappings
+# GESTURE-ACTION CRUD OPERATIONS
 
 def create_gesture_action_mapping(
         gesture_name, 
@@ -208,28 +206,28 @@ def create_gesture_action_mapping(
         context_name, 
         gesture_action_map_path):
     
-    new_gesture_action_map = load_json_mapping(gesture_action_map_path)[0]
+    gesture_action_map = load_json_mapping(gesture_action_map_path)
 
     # Check if the context exists
-    if context_name not in new_gesture_action_map:
+    if context_name not in gesture_action_map:
         print(f"Context '{context_name}' does not exist.")
         return False
     
     # Check if the gesture already exists in the context
-    if gesture_name in new_gesture_action_map[context_name]:
+    if gesture_name in gesture_action_map[context_name]:
         print(f"Gesture '{gesture_name}' already exists in context '{context_name}'.")
         return False
     
     # Check if the action already exists in the context
-    if action_name in new_gesture_action_map[context_name].values():
+    if action_name in gesture_action_map[context_name].values():
         print(f"Action '{action_name}' already exists in context '{context_name}'.")
         return False
     
     # Add the new gesture-action mapping to the context
-    new_gesture_action_map[context_name][gesture_name] = action_name
+    gesture_action_map[context_name][gesture_name] = action_name
     
     # Save the updated gesture-action map
-    save_mapping(gesture_action_map_path, new_gesture_action_map)
+    save_json_mapping(gesture_action_map_path, gesture_action_map)
     return True   
 
 def delete_gesture_action_mapping(
@@ -237,168 +235,224 @@ def delete_gesture_action_mapping(
         action_name, 
         context_name, 
         gesture_action_map_path):
-    # TODO actually write this function
     
-    new_gesture_action_map = load_json_mapping(gesture_action_map_path)[0]
+    gesture_action_map = load_json_mapping(gesture_action_map_path)
 
     # Check if the context exists
-    if context_name not in new_gesture_action_map:
+    if context_name not in gesture_action_map:
         print(f"Context '{context_name}' does not exist.")
         return False
     
     # Check if the gesture exists in the context
-    if gesture_name not in new_gesture_action_map[context_name]:
+    if gesture_name not in gesture_action_map[context_name]:
         print(f"Gesture '{gesture_name}' does not exist in context '{context_name}'.")
         return False
     
     # Check if the gesture-action mapping exists
-    if new_gesture_action_map[context_name][gesture_name] != action_name:
+    if gesture_action_map[context_name][gesture_name] != action_name:
         print(f"Action '{action_name}' does not exist for gesture '{gesture_name}' in context '{context_name}'.")
         return False
     
     # Remove the gesture-action mapping from the context
-    del new_gesture_action_map[context_name][gesture_name]
+    del gesture_action_map[context_name][gesture_name]
 
     # Save the updated gesture-action map
-    save_mapping(gesture_action_map_path, new_gesture_action_map)
+    save_json_mapping(gesture_action_map_path, gesture_action_map)
     return True
 
 
-# CRUD operations for gestures
+# GESTURE CRUD OPERATIONS
 
 def create_gesture(
-        gesture_name, 
+        created_gesture_name, 
         gesture_index_map_path,
         gesture_data_path,
         gesture_model_path):
+    
+    # LOAD GESTURE INDEX MAP AND ADD NEW GESTURE-INDEX ITEM
+    gesture_index_map = load_json_mapping(gesture_index_map_path)
+    gesture_index_map[created_gesture_name] = len(gesture_index_map)
+
+    # LOAD EXISTING GESTURE DATA
+    training_dfs = []
+    
+    for gesture_name in gesture_index_map.keys():
+        # Load the gesture data and add a column for the gesture name
+        if gesture_name != created_gesture_name:
+            gesture_data = load_gesture_data(
+                gesture_data_path, 
+                gesture_name, 
+                ".csv")
+            training_dfs.append(gesture_data)
+               
     # GATHER NEW GESTURE DATA
-    new_data = gesture_data_capture.gather_gesture_data(gesture_name)
+    new_data = gd.gather_gesture_data(created_gesture_name)
+    training_dfs.append(new_data)
 
-    # LOAD OLD GESTURE DATA
-    training_data = new_data.copy()
-    training_data = pd.concat([training_data, load_csvs(gesture_data_path)], ignore_index=True)
+    # CONCATENATE ALL TRAINING DATA
+    training_data = pd.concat(training_dfs, ignore_index=True)
 
-    # CREATE NEW MAPS AND MODEL
-    # TODO Create a new gesture-index map including the gesture to be added
-    old_gesture_index_map = load_json_mapping(gesture_index_map_path)[0]
-    new_gesture_index_map = old_gesture_index_map.copy()
-    new_gesture_index_map[gesture_name] = len(old_gesture_index_map)
+    # TRAIN NEW MODEL
+    model = gm.model_training_pipeline(
+        training_data, 
+        gesture_index_map)
 
-    # Train a new gesture model including the gesture to be added
-    new_model = gesture_model.train_gesture_model(new_data)
-
-
-    # UPATE MAPS AND MODEL
+    # SAVE UPDATED MAPS AND MODEL
     # TODO LATER: Add a check to see if the model training was successful; if not, revert
     # TODO LATER: Make this an atomic operation - if any part fails, revert all changes
-    # TODO Save the new gesture-index map, overwriting the old index map
-    save_mapping(gesture_index_map_path, new_gesture_index_map)
-    new_data.to_csv(gesture_data_path + "/" + gesture_name + ".csv", index=False)
-    save_model(new_model, gesture_model_path) 
+    
+    # Save the new gesture-index map, overwriting the old index map
+    save_json_mapping(gesture_index_map_path, gesture_index_map)
+    
+    # Save the data for the new gesture
+    new_data = new_data.drop(columns=['gesture_name'])
+    new_data.to_csv(gesture_data_path + created_gesture_name + ".csv", index=False)
+    
+    #Save the new model, overwriting the old model
+    torch.save(model, gesture_model_path)
+    
     return True
 
 
-def delete_gesture(
-        gesture_name, 
+
+
+# Add function to alter a gesture - capturing new data 
+# and retraining the gesture recognition model without altering
+# the gesture-action map
+def retrain_gesture(
+        retrained_gesture_name,
         gesture_index_map_path,
-        gesture_action_map_path,
         gesture_data_path,
         gesture_model_path):
     
-    # LOAD GESTURE DATA, DROP ROWS FROM GESTURE NAME
-    training_data = pd.concat([training_data, load_csvs(gesture_data_path)], ignore_index=True)
-    training_data = training_data[training_data['gesture_name'] != gesture_name]
+    # LOAD GESTURE INDEX MAP (READ-ONLY)
+    gesture_index_map = load_json_mapping(gesture_index_map_path)
     
-    # CREATE NEW MAPS AND MODEL
-    # TODO Create a new gesture-index map excluding the gesture to be removed
-    old_gesture_index_map = load_json_mapping(gesture_index_map_path)[0]
-    new_gesture_index_map = {}
-    index = 0
-    for k in old_gesture_index_map.keys():
-        if k != gesture_name:
-            new_gesture_index_map[k] = index
-            index += 1
+    # LOAD TRAINING DATA, REPLACING OLD GESTURE DATA WITH NEW GESTURE DATA
+    training_dfs = []
     
-    # TODO Create a new gesture-action map excluding the gesture to be removed from all contexts
-    old_gesture_action_map = load_json_mapping(gesture_action_map_path)[0]
-    new_gesture_action_map = {}
-    for context in old_gesture_action_map.keys():
-        new_gesture_action_map[context] = {}
-        for gesture in old_gesture_action_map[context].keys():
-            if gesture != gesture_name:
-                new_gesture_action_map[context][gesture] = old_gesture_action_map[context][gesture]
-        
-    # TODO Train a new gesture model excluding the gesture to be removed
-    new_model = gesture_model.train_gesture_model(training_data)
+    for gesture_name in gesture_index_map.keys():
+        if gesture_name != retrained_gesture_name:
+            # Load the gesture data and add a column for the gesture name
+            gesture_data = load_gesture_data(
+                gesture_data_path, 
+                gesture_name,  
+                ".csv")
+            training_dfs.append(gesture_data)
+        else:
+            # GATHER NEW GESTURE DATA
+            new_gesture_data = gd.gather_gesture_data(retrained_gesture_name)
+            training_dfs.append(new_gesture_data)
 
-    # UPDATE MAPS AND MODEL; DELETE OLD DATA
-    # TODO LATER: Add a check to see if the model training was successful; if not, revert
-    # TODO LATER: Make this an atomic operation - if any part fails, revert all changes
-    # TODO Move save model function to CRUD & verify it works
-    save_mapping(gesture_index_map_path, new_gesture_index_map)
-    save_mapping(gesture_action_map_path, new_gesture_action_map)
-    save_model(new_model, gesture_model_path) 
-    os.delete(gesture_data_path + "/" + gesture_name + ".csv")
+    # CONCATENATE ALL TRAINING DATA
+    training_data = pd.concat(training_dfs, ignore_index=True)
+
+    # TRAIN NEW MODEL
+    model = gm.model_training_pipeline(training_data, gesture_index_map)
+
+    # SAVE NEW DATA AND MODEL
+    # TODO LATER make this an atomic operation - if any part fails, revert all changes
+    # replace old gesture data with new gesture data
+    new_gesture_data = new_gesture_data.drop(columns=['gesture_name'])
+    new_gesture_data.to_csv(gesture_data_path + "/" + retrained_gesture_name + ".csv", index=False)
+    
+    #Save the new model, overwriting the old model
+    torch.save(model, gesture_model_path)
+
     return True
 
-def update_gesture_name(
+# TODO problem - doesn't rename the gesture within the data file - but this is extraneous
+# TODO refactor project to exclude score, capture_number, and gesture_name from the data file
+def rename_gesture(
         current_gesture_name, 
         new_gesture_name,
         gesture_index_map_path,
         gesture_action_map_path,
         gesture_data_path):
     # CREATE NEW MAPS
-    # Edit the name of the gesture in the gesture index map
-    new_gesture_index_map = load_json_mapping(gesture_index_map_path)[0]
-    if current_gesture_name not in new_gesture_index_map:
-        return False
-    
-    new_gesture_index_map[new_gesture_name] = new_gesture_index_map[current_gesture_name]
-    del new_gesture_index_map[current_gesture_name]
+    # Update the gesture name in the gesture-index map
+    gesture_index_map = load_json_mapping(gesture_index_map_path)
+    gesture_index_map[new_gesture_name] = gesture_index_map[current_gesture_name]
+    del gesture_index_map[current_gesture_name]
 
-    # Update the gesture name in each context of the gesture map
-    new_gesture_action_map = load_json_mapping(gesture_action_map_path)[0]
-    for context in new_gesture_action_map.keys():
-        if current_gesture_name in new_gesture_action_map[context]:
-            new_gesture_action_map[context][new_gesture_name] = new_gesture_action_map[context][current_gesture_name]
-            del new_gesture_action_map[context][current_gesture_name]
+    # Update the gesture name in each context of the gesture-action map
+    gesture_action_map = load_json_mapping(gesture_action_map_path)
+    for context in gesture_action_map.keys():
+        if current_gesture_name in gesture_action_map[context]:
+            gesture_action_map[context][new_gesture_name] = gesture_action_map[context][current_gesture_name]
+            del gesture_action_map[context][current_gesture_name]
 
     # SAVE NEW MAPS & UPDATE GESTURE DATA FILE NAME
     # TODO LATER make this an atomic operation - if any part fails, revert all changes    
-    save_mapping(gesture_index_map_path, new_gesture_index_map)
-    save_mapping(gesture_action_map_path, new_gesture_action_map)
+    save_json_mapping(gesture_index_map_path, gesture_index_map)
+    save_json_mapping(gesture_action_map_path, gesture_action_map)
     os.rename(gesture_data_path + "/" + current_gesture_name + ".csv", gesture_data_path + "/" + new_gesture_name + ".csv")
     return True
 
-# TODO add function to alter a gesture - capturing new data 
-# and retraining the gesture recognition model without altering
-# the gesture-action map
-def update_gesture(
-        gesture_name,
+
+
+def delete_gesture(
+        deleted_gesture_name, 
         gesture_index_map_path,
+        gesture_action_map_path,
         gesture_data_path,
         gesture_model_path):
-    # GATHER NEW GESTURE DATA
-    new_data = gesture_data_capture.gather_gesture_data(gesture_name)
     
-    # LOAD TRAINING DATA, REMOVE OLD GESTURE DATA, AND ADD NEW DATA
-    training_data = pd.concat([training_data, load_csvs(gesture_data_path)], ignore_index=True)
-    training_data = training_data[training_data['gesture_name'] != gesture_name]
-    training_data = pd.concat([training_data, new_data], ignore_index=True)
+    # LOAD AND UPDATE MAPS TO EXCLUDE TARGET GESTURE 
+    gesture_index_map = load_json_mapping(gesture_index_map_path)
+    # Remove the gesture from the index map
+    del gesture_index_map[deleted_gesture_name]
+    # Renumber the indices of the remaining gestures
+    i = 0
+    new_gesture_index_map = {}
+    for k in gesture_index_map.keys():
+        new_gesture_index_map[k] = i
+        i += 1
+    gesture_index_map = new_gesture_index_map
+
+    print(f"Gesture index map: {gesture_index_map}")
+
+    # Remove the gesture from each context of the gesture-action map
+    gesture_action_map = load_json_mapping(gesture_action_map_path)
+    for v in gesture_action_map.values():
+        if deleted_gesture_name in v.keys():
+            del v[deleted_gesture_name]
+
+    print (f"Gesture action map: {gesture_action_map}")
+
+    # LOAD TRAINING DATA - EXCLUDES TARGET GESTURE DATA
+    training_dfs = []
+    
+    for gesture_name in gesture_index_map.keys():
+        # Load the gesture data and add a column for the gesture name
+        gesture_data = load_gesture_data(
+            gesture_data_path, 
+            gesture_name, 
+            ".csv")
+        training_dfs.append(gesture_data)
+
+    # CONCATENATE ALL TRAINING DATA
+    training_data = pd.concat(training_dfs, ignore_index=True)
+    
+    print(f"Training data: {training_data}")
+    print(f"Training data shape: {training_data.shape}")
 
     # TRAIN NEW MODEL
-    # Load gesture-index map (read-only)
-    gesture_index_map = load_json_mapping(gesture_index_map_path)[0]
-    
-    
+    model = gm.model_training_pipeline(
+        training_data, 
+        gesture_index_map)
 
-    # TODO retrain the gesture model
-
-    # SAVE NEW DATA AND MODEL
-    # TODO LATER make this an atomic operation - if any part fails, revert all changes
-    # TODO replace old gesture data with new gesture data
-    # TODO replace old gesture model with new gesture model
+    # SAVE MAPS AND MODEL; DELETE OLD DATA
+    # TODO LATER: Add a check to see if the model training was successful; if not, revert
+    # TODO LATER: Make this an atomic operation - if any part fails, revert all changes
+    
+    # Save the new mappigns, overwriting the old mappings
+    save_json_mapping(gesture_index_map_path, gesture_index_map)
+    save_json_mapping(gesture_action_map_path, gesture_action_map)
+    
+    #Save the new model, overwriting the old model
+    torch.save(model, gesture_model_path)
+    
+    #Delete the old gesture data file
+    os.remove(gesture_data_path + "/" + deleted_gesture_name + ".csv")
     return True
-
-
-

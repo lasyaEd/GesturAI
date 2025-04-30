@@ -21,7 +21,7 @@ GESTURE_ACTION_MAP_PATH = os.environ["GESTURAI_GESTURE_ACTION_MAP_PATH"]
 GESTURE_MODEL_PATH = os.environ["GESTURAI_GESTURE_MODEL_PATH"]
 
 # Load label map
-gesture_index_map = crud.load_json_mapping(GESTURE_INDEX_MAP_PATH)[0]
+gesture_index_map = crud.load_json_mapping(GESTURE_INDEX_MAP_PATH)
 index_gesture_map = {v: k for k, v in gesture_index_map.items()}
 
 # Load gesture recognition model
@@ -34,7 +34,7 @@ index_gesture_map = {v: k for k, v in gesture_index_map.items()}
 gesture_model = torch.load(GESTURE_MODEL_PATH, map_location=torch.device('cpu'), weights_only = False)
 
 # Load gesture-action mapping
-gesture_action_map = crud.load_json_mapping(GESTURE_ACTION_MAP_PATH)[0]
+gesture_action_map = crud.load_json_mapping(GESTURE_ACTION_MAP_PATH)
 
 # Initialize MediaPipe
 mp_hands = mp.solutions.hands

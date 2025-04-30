@@ -99,8 +99,8 @@ if st.button("🔁 Reset to Default Mappings, Data, and Model"):
     # TODO Delete current gesture data, model, and mapping files
     
     # Save default gesture data, model, and mapping files as current
-    crud.save_mapping(GESTURE_ACTION_MAP_PATH, default_gesture_action_map)
-    crud.save_mapping(GESTURE_INDEX_MAP_PATH, default_gesture_index_map)
+    crud.save_json_mapping(GESTURE_ACTION_MAP_PATH, default_gesture_action_map)
+    crud.save_json_mapping(GESTURE_INDEX_MAP_PATH, default_gesture_index_map)
 
 
 

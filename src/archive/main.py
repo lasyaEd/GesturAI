@@ -1,7 +1,7 @@
 import cv2
 import time
-from hand_tracker import HandTracker
-from gesture_utils import detect_gesture  # central detection logic
+from archive.hand_tracker import HandTracker
+from archive.gesture_utils import detect_gesture  # central detection logic
 from actions import gesture_action_map    # maps gestures to functions
 
 # Initialize HandTracker

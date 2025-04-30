@@ -1,0 +1,10 @@
+{
+  "other_gesture": 0,
+  "fist": 1,
+  "peace_sign": 2,
+  "thumbs_up": 3,
+  "ok_sign": 4,
+  "pointing": 5,
+  "open_palm": 6,
+  "rock_on": 7
+}

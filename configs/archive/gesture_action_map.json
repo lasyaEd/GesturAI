@@ -1,0 +1,49 @@
+{ 
+  "mode_context_selection" : {
+    "three_fingers": "mode_word",
+    "peace_sign": "mode_media",
+    "ok_sign": "mode_presentation",
+    "rock_on": "mode_default"
+  },
+
+  "mode_default": {
+    "open_palm": "paste",
+    "fist": "open_terminal",
+    "thumbs_up": "open_browser",
+    "ok_sign": "lock_computer",
+    "thumbs_down": "open_file_explorer",
+    "three_fingers": "None",
+    "rock_on": "mode_context_selection",
+    "pinch": "pause_video",
+    "swipe_left": "swipe_left_tab",
+    "swipe_right": "swipe_right_tab"
+  },
+
+  "mode_word": {
+    "rock_on": "mode_context_selection",
+    "pointing_finger": "select_all",
+    "open_palm": "paste",
+    "peace_sign": "copy",
+    "fist": "cut",
+    "thumbs_up": "undo",
+    "thumbs_down": "redo",
+    "three_fingers": "None"
+  },
+
+  "mode_media": {
+    "rock_on": "mode_context_selection",
+    "swipe_left": "decrease_volume",
+    "swipe_right": "increase_volume",
+    "three_fingers": "None",
+    "pinch": "pause_video",
+    "open_palm": "pause_video"
+  },
+
+  "mode_presentation": {
+    "rock_on": "mode_context_selection",
+    "open_palm": "start_presentation",
+    "swipe_right": "next_slide",
+    "swipe_left": "previous_slide",
+    "three_fingers": "exit_presentation"
+  }
+}

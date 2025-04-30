@@ -3,19 +3,22 @@ import os
 import inspect
 import actions
 
-CONFIG_PATH = "gesture_config.json"
+
+CONFIG_PATH = os.getenv("GESTURAI_GESTURE_MAP")
+DEFAULT_CONFIG_PATH = os.getenv("GESTURAI_GESTURE_MAP_DEFAULT")
+
 
 # Load or create default mapping
 def load_mapping():
     if os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "r") as f:
             return json.load(f)
-    return {"default": {}, "media_mode": {}, "presentation_mode": {}, "word_mode": {}}
+
 
 def save_mapping(mapping):
     with open(CONFIG_PATH, "w") as f:
         json.dump(mapping, f, indent=2)
-    print("✅ Mapping saved to gesture_config.json\n")
+    print("✅ Mapping saved\n")
 
 def list_modes(mapping):
     print("\nAvailable modes:")

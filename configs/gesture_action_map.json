@@ -1,0 +1,30 @@
+{
+  "mode_context_selection": {
+    "fist": "mode_word",
+    "peace_sign": "mode_media",
+    "ok_sign": "mode_presentation",
+    "pointing": "mode_default"
+  },
+  "mode_default": {
+    "pointing": "mode_context_selection",
+    "open_palm": "paste",
+    "fist": "open_terminal",
+    "thumbs_up": "open_browser",
+    "ok_sign": "lock_computer"
+  },
+  "mode_word": {
+    "pointing": "mode_context_selection",
+    "open_palm": "paste",
+    "peace_sign": "copy",
+    "fist": "cut",
+    "thumbs_up": "undo"
+  },
+  "mode_media": {
+    "pointing": "mode_context_selection",
+    "open_palm": "pause_video"
+  },
+  "mode_presentation": {
+    "pointing": "mode_context_selection",
+    "open_palm": "start_presentation"
+  }
+}
